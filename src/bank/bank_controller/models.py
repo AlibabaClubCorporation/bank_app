@@ -1,5 +1,6 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
+from django.contrib.auth.hashers import make_password
 from django.conf import settings
 from django.core.validators import MinValueValidator
 
@@ -7,7 +8,32 @@ import uuid
 
 from bank_controller.services.general_service import generate_pin
 
+
+
 # Create your models here.
+
+class CustomUserManager(UserManager):
+
+    def _create_user(self, email, password, **extra_fields):
+        email = self.normalize_email(email)
+        user = User(email=email, **extra_fields)
+        user.password = make_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_user(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', False)
+        extra_fields.setdefault('is_superuser', False)
+        return self._create_user(email, password, **extra_fields)
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        assert extra_fields['is_staff']
+        assert extra_fields['is_superuser']
+        return self._create_user(email, password, **extra_fields)
+
 
 class User( AbstractUser ):
     """
@@ -17,8 +43,6 @@ class User( AbstractUser ):
     REQUIRED_FIELDS = [
         'first_name',
         'last_name',
-        'email',
-        'password',
     ]
 
     id = models.UUIDField(
@@ -38,11 +62,13 @@ class User( AbstractUser ):
 
     full_name = models.CharField(
         max_length = 255,
+        unique = True,
+
+        blank = True,
     )
 
     email = models.EmailField(
         unique = True,
-        editable = False,
     )
 
     birth_date = models.DateField(
@@ -53,6 +79,11 @@ class User( AbstractUser ):
     is_verified = models.BooleanField(
         default = False, 
     )
+
+    USERNAME_FIELD = 'email'
+
+    objects = CustomUserManager()
+    
 
 class CashAccount( models.Model ):
     """
@@ -77,7 +108,6 @@ class CashAccount( models.Model ):
     user = models.OneToOneField(
         to = settings.AUTH_USER_MODEL,
         unique = True,
-        editable = False,
         on_delete = models.PROTECT,
 
         related_name = 'cash_account',
@@ -85,7 +115,6 @@ class CashAccount( models.Model ):
 
     creation_date = models.DateTimeField(
         auto_now_add = True,
-        editable = False,
     )
 
     is_blocked = models.BooleanField(
@@ -101,13 +130,10 @@ class Purchase( models.Model ):
     merchant = models.CharField(
         max_length = 255,
     )
-    amount = models.PositiveIntegerField(
-        editable = False,
-    )
+    amount = models.PositiveIntegerField()
 
     cash_account = models.ForeignKey(
         to = 'bank_controller.CashAccount',
-        editable = False,
 
         on_delete = models.CASCADE,
         related_name = 'purchases',
@@ -115,7 +141,6 @@ class Purchase( models.Model ):
 
     creation_date = models.DateTimeField(
         auto_now_add = True,
-        editable = False,
     )
     
 
@@ -126,14 +151,12 @@ class Transfer( models.Model ):
 
     sender = models.ForeignKey(
         to = CashAccount,
-        editable = False,
 
         on_delete = models.CASCADE,
         related_name = 'sent_transfers',
     )
     reciever = models.ForeignKey(
         to = CashAccount,
-        editable = False,
 
         null = True,
 
@@ -141,13 +164,10 @@ class Transfer( models.Model ):
         related_name = 'recieved_transfers',
     )
 
-    amount = models.PositiveIntegerField(
-        editable = False,
-    )
+    amount = models.PositiveIntegerField()
 
     creation_date = models.DateTimeField(
         auto_now_add = True,
-        editable = False,
     )
 
 class Credit( models.Model ):
@@ -172,8 +192,6 @@ class Credit( models.Model ):
     cash_account = models.OneToOneField(
         to = CashAccount,
 
-        editable = False,
-
         on_delete = models.PROTECT,
         related_name = 'credit',
     )
@@ -189,7 +207,6 @@ class Credit( models.Model ):
     )
     loan_duration = models.PositiveSmallIntegerField(
         choices = loan_duration_choice,
-        editable = False,
     )
 
     is_increased_percentage = models.BooleanField(
@@ -198,7 +215,6 @@ class Credit( models.Model ):
 
     creation_date = models.DateTimeField(
         auto_now_add = True,
-        editable = False,
     )
     last_payment_date = models.DateTimeField(
         auto_now_add = True,
@@ -220,7 +236,6 @@ class Message( models.Model ):
 
     creation_date = models.DateTimeField(
         auto_now_add = True,
-        editable = False,
     )
 
 

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 
     # Libraries
     'rest_framework',
+    'djoser',
 ]
 
 MIDDLEWARE = [
@@ -128,4 +129,48 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+
 AUTH_USER_MODEL = 'bank_controller.User'
+
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES' : [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+
+    'DEFAULT_AUTHENTICATION_CLASSES' : [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+    'PAGE_SIZE': 100,
+}
+
+DJOSER = {
+    'PASSWORD_RESET_CONFIRM_URL' : '#/password/reset/confirm/{uid}/{token}',
+    'ACTIVATION_URL' : 'auth/users/activation/{uid}/{token}',
+    'SEND_ACTIVATION_EMAIL' : True,
+    'SERIALIZERS' : {},
+
+    "EMAIL" : {
+        # venv/Lib/site-packages/djoser/templates/email/activation.html - Changed
+        "activation": "djoser.email.ActivationEmail",
+        
+        "confirmation": "djoser.email.ConfirmationEmail",
+        "password_reset": "djoser.email.PasswordResetEmail",
+        "password_changed_confirmation": "djoser.email.PasswordChangedConfirmationEmail",
+        "username_changed_confirmation": "djoser.email.UsernameChangedConfirmationEmail",
+        "username_reset": "djoser.email.UsernameResetEmail",
+    }
+}
+
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = 'mrloking11@gmail.com'
+EMAIL_HOST_PASSWORD = 'nexwdewfqqzqarjh'
+EMAIL_PORT = 587
