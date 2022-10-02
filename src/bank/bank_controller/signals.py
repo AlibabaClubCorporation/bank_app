@@ -7,4 +7,5 @@ from .models import User
 
 @receiver(pre_save, sender=User)
 def set_full_name(sender, instance,  **kwargs):
-    instance.full_name = f'{instance.first_name} {instance.last_name}'
+    if not instance.full_name:
+        instance.full_name = f'{instance.first_name} {instance.last_name}'

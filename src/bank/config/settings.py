@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 
     # Libraries
     'rest_framework',
+    'rest_framework.authtoken',
     'djoser',
 ]
 
@@ -140,7 +141,7 @@ REST_FRAMEWORK = {
     ],
 
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'bank_controller.permissions.IsHasCashAccount',
     ],
 
     'DEFAULT_AUTHENTICATION_CLASSES' : [
@@ -149,6 +150,8 @@ REST_FRAMEWORK = {
 
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 100,
+
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 
 DJOSER = {
@@ -160,7 +163,7 @@ DJOSER = {
     "EMAIL" : {
         # venv/Lib/site-packages/djoser/templates/email/activation.html - Changed
         "activation": "djoser.email.ActivationEmail",
-        
+
         "confirmation": "djoser.email.ConfirmationEmail",
         "password_reset": "djoser.email.PasswordResetEmail",
         "password_changed_confirmation": "djoser.email.PasswordChangedConfirmationEmail",

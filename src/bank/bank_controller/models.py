@@ -1,8 +1,9 @@
+from tkinter import N
 from django.db import models
-from django.contrib.auth.models import AbstractUser, UserManager
+from django.contrib.auth.models import UserManager, AbstractUser
 from django.contrib.auth.hashers import make_password
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 import uuid
 
@@ -13,12 +14,18 @@ from bank_controller.services.general_service import generate_pin
 # Create your models here.
 
 class CustomUserManager(UserManager):
+    """
+        overridden "UserManager", to remove the need for the "username" field
+    """
 
     def _create_user(self, email, password, **extra_fields):
         email = self.normalize_email(email)
         user = User(email=email, **extra_fields)
         user.password = make_password(password)
         user.save(using=self._db)
+
+        CashAccount.objects.create( user = user )
+        
         return user
 
     def create_user(self, email, password=None, **extra_fields):
@@ -40,10 +47,22 @@ class User( AbstractUser ):
         Custom user model class
     """
 
-    REQUIRED_FIELDS = [
+    REQUIRED_FIELDS = (
         'first_name',
         'last_name',
-    ]
+    )
+
+    READING_FIELDS = (
+            'id',
+            'full_name',
+            'email',
+            'birth_date',
+            'is_active',
+            'cash_account',
+    )
+
+    EXCLUDE_READING_FIELDS = tuple()
+
 
     id = models.UUIDField(
         default = uuid.uuid4,
@@ -76,12 +95,9 @@ class User( AbstractUser ):
         null = True,
     )
 
-    is_verified = models.BooleanField(
-        default = False, 
-    )
+    username = None
 
     USERNAME_FIELD = 'email'
-
     objects = CustomUserManager()
     
 
@@ -89,6 +105,23 @@ class CashAccount( models.Model ):
     """
         Cash account model class
     """
+
+    REQUIRED_FIELDS = (
+        'user',
+    )
+
+    READING_FIELDS = (
+            'id',
+            'pin',
+            'amount',
+            'creation_date',
+            'is_blocked',
+            'history',
+            'credit',
+            'messages',
+    )
+
+    EXCLUDE_READING_FIELDS = tuple()
 
     id = models.UUIDField(
         default = uuid.uuid4,
@@ -98,7 +131,17 @@ class CashAccount( models.Model ):
         db_index = True,
     )
     pin = models.PositiveSmallIntegerField(
-        default = generate_pin
+        default = generate_pin,
+        validators = [
+            MinValueValidator(
+                limit_value = 1000,
+                message = 'Pin cannot be less than 1000 and more than 9999',
+            ),
+            MaxValueValidator(
+                limit_value = 9999,
+                message = 'Pin cannot be less than 1000 and more than 9999',
+            ),
+        ],
     )
 
     amount = models.PositiveIntegerField(
@@ -127,6 +170,15 @@ class Purchase( models.Model ):
         Purchas model class
     """
 
+    REQUIRED_FIELDS = (
+        'merchant',
+        'cash_account',
+        'amount',
+    )
+
+    READING_FIELD = '__all__'
+    EXCLUDE_READING_FIELDS = ( 'cash_account', )
+
     merchant = models.CharField(
         max_length = 255,
     )
@@ -142,12 +194,25 @@ class Purchase( models.Model ):
     creation_date = models.DateTimeField(
         auto_now_add = True,
     )
+
+    is_ignore = models.BooleanField(
+        default = False,
+    )
     
 
 class Transfer( models.Model ):
     """
         Transfer model class
     """
+
+    REQUIRED_FIELDS = (
+        'sender',
+        'reciever',
+        'amount',
+    )
+
+    READING_FIELDS = '__all__'
+    EXCLUDE_READING_FIELDS = tuple()
 
     sender = models.ForeignKey(
         to = CashAccount,
@@ -168,6 +233,10 @@ class Transfer( models.Model ):
 
     creation_date = models.DateTimeField(
         auto_now_add = True,
+    )
+
+    is_ignore = models.BooleanField(
+        default = False,
     )
 
 class Credit( models.Model ):
@@ -203,7 +272,6 @@ class Credit( models.Model ):
                 message = 'The loan amount cannot be less than 1000',
             ),
         ],
-        editable = False,
     )
     loan_duration = models.PositiveSmallIntegerField(
         choices = loan_duration_choice,
@@ -236,6 +304,10 @@ class Message( models.Model ):
 
     creation_date = models.DateTimeField(
         auto_now_add = True,
+    )
+
+    is_ignore = models.BooleanField(
+        default = False,
     )
 
 
