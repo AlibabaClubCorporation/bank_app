@@ -134,17 +134,23 @@ def checking_payment_part_credit( credit : Credit ) -> bool:
         - Blocks the user for a second or more non-payment of the loan
     """
 
+    # Specifies the amount to be paid. If the user is already blocked due to non-payment of the loan,
+    # then according to the rules of the bank, the amount to be paid is the full amount to pay the loan
     if not credit.cash_account.is_blocked:
         payment_amount = calc_amount_required_to_pay_one_credit_part( credit )
     else:
         payment_amount = calc_remaining_amount_to_repay_credit( credit )
 
+    # Tries to pay off part/all of a loan
     if not payment_part_credit( credit, payment_amount ):
+        # If the payment is not successful and the interest has not yet been increased, the interest rate of the loan is raised
         if not credit.is_increased_percentage:
             credit.is_increased_percentage = True
             credit.save()
             message_content = f'Due to non-payment of the credit, the interest rate was increased for the credit with the identifier "{credit.pk}"'
             Message.objects.create( cash_account =  credit.cash_account, content = message_content )
+        # If the interest has already been increased, which means that the user has not paid the loan,
+        # the user account is blocked according to the rules of the bank's credit system
         else:
             if not credit.cash_account.is_blocked:
                 credit.cash_account.is_blocked = True

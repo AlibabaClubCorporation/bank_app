@@ -1,9 +1,10 @@
 import os
+import decouple
 
 from celery import Celery
 
 # Set the default Django settings module for the 'celery' program.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', F'config.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', f'config.settings.{decouple.config("CONFIGURATION_FILE_TYPE")}_settings')
 
 app = Celery('config')
 

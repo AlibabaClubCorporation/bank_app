@@ -1,0 +1,59 @@
+version: "3.10"
+
+services:
+  redis:
+    image: redis
+    restart: always
+
+  project:
+    restart: always
+    build: 
+      context: .\src
+    ports: 
+      - "8000:8000"
+      
+    command: >
+      sh -c   "python3 bank/manage.py makemigrations && 
+              python3 bank/manage.py migrate && 
+              python3 bank/manage.py runserver 0.0.0.0:8000"
+
+    volumes:
+      - .\src\bank\db:/src/bank/db
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres
+    volumes:
+      - .\src\bank\db:/src/bank/db
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres_user
+      - POSTGRES_PASSWORD=1324354657687980
+    
+    ports:
+      - 54321:5432
+
+  
+  worker:
+    restart: always
+    build: 
+      context: .\src
+
+    volumes:
+      - .\src\bank\db:/src/bank/db
+
+    command: ['celery', '--workdir=bank', '-A', 'config', 'worker' ]
+    depends_on:
+      - project
+
+  celery-beats:
+    restart: always
+    build: 
+      context: .\src
+    volumes: 
+      - .\src\bank\db:/src/bank/db
+    command: ['celery', '--workdir=./bank', '-A', 'config', 'beat', '-l', 'INFO', '--scheduler', 'django_celery_beat.schedulers:DatabaseScheduler']
+    depends_on:
+      - worker
