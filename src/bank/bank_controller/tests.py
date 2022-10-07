@@ -1,14 +1,19 @@
+import datetime
+from time import sleep
+
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework.authtoken.models import Token
 from django.db.utils import IntegrityError
 from django.test import TestCase
+from django.conf import settings
 
 from bank_controller.models import *
 from bank_controller.serializers import *
 from bank_controller.services.cash_management_service import *
 from bank_controller.services.general_service import *
+from bank_controller.services.credit_service import *
 from bank_controller.mixins.serializer_mixins import *
 from bank_controller.mixins.view_mixins import *
 
@@ -281,6 +286,7 @@ class TestClearHistoryMixinAPIView( TestCase ):
         view.model = Purchase
 
         request = PseudoRequest
+        request.user = user
         request.data = {
         'id_list' : [ 1, 3 ]
         }
@@ -608,3 +614,158 @@ class TestGeneralService( TestCase ):
         self.assertEqual( False, purchase.is_ignore )
         set_ignore_status_for_queryset( True, user.cash_account.purchases.all() )
         self.assertEqual( True, Purchase.objects.get(pk = 1).is_ignore )
+
+class TestCreditService( TestCase ):
+
+    def test_calc_credit_amount_with_percent( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+
+        self.assertEqual( 1515, calc_credit_amount_with_percent( credit ) )
+
+        credit.is_increased_percentage = True
+        credit.save()
+
+        self.assertEqual( 1530, calc_credit_amount_with_percent( credit ) )
+    
+    def test_calc_remaining_amount_to_repay_credit( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+
+        self.assertEqual( 1515, calc_remaining_amount_to_repay_credit( credit ) )
+
+        credit.amount_returned = 200
+        credit.is_increased_percentage = True
+        credit.save()
+
+        self.assertEqual( 1330, calc_remaining_amount_to_repay_credit( credit ) )
+
+    def test_calc_amount_required_to_pay_one_credit_part( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+        
+        self.assertEqual( 505, calc_amount_required_to_pay_one_credit_part( credit ) )
+
+        credit.is_increased_percentage = True
+        credit.save()
+
+        self.assertEqual( 510, calc_amount_required_to_pay_one_credit_part( credit ) )
+    
+    def test_calc_parts_remaining_to_pay_credit( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+        
+        self.assertEqual( 3, calc_parts_remaining_to_pay_credit( credit ) )
+
+        credit.amount_returned = 580
+        credit.save()
+
+        self.assertEqual( 2, calc_parts_remaining_to_pay_credit( credit ) )
+    
+    def test_calc_number_paid_credit_parts( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+        
+        self.assertEqual( 0, calc_number_paid_credit_parts( credit ) )
+
+        credit.amount_returned = 580
+        credit.save()
+
+        self.assertEqual( 1, calc_number_paid_credit_parts( credit ) )
+
+    def test_calc_number_paid_credit_parts( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+        
+        self.assertEqual( 0, calc_number_paid_credit_parts( credit ) )
+
+        credit.amount_returned = 580
+        credit.save()
+
+        self.assertEqual( 1, calc_number_paid_credit_parts( credit ) )
+    
+    def test_calc_payment_time_limit( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+
+        key = next( i for i in settings.UNIT_PAYMENT_CREDIT_TIME.keys() )
+        plus_to_credit_time = {
+            key : 1
+        }
+            
+        self.assertEqual( credit.last_payment_date + datetime.timedelta( **plus_to_credit_time ) , calc_payment_time_limit( credit ) )
+
+        credit.amount_returned = 580
+        credit.save()
+
+        plus_to_credit_time = {
+            key : 2
+        }
+
+        self.assertEqual( credit.last_payment_date + datetime.timedelta( **plus_to_credit_time ), calc_payment_time_limit( credit ) )
+
+    def test_credit_repayment_check( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+
+        self.assertEqual( False, credit_repayment_check( credit ) )
+
+        credit.amount_returned = 1515
+        credit.save()
+
+        self.assertEqual( True, credit_repayment_check( credit ) )
+
+    def test_payment_part_credit( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        user.cash_account.amount = 505
+        user.cash_account.save()
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+
+        last_payment = credit.last_payment_date
+        print('Wait one minute, for showing correct test result')
+        sleep( 60 )
+        self.assertEqual( True, payment_part_credit( credit, calc_amount_required_to_pay_one_credit_part(credit) ) )
+
+        self.assertEqual( user.cash_account.amount, 0 )
+        self.assertEqual( credit.amount_returned, 505 )
+        self.assertEqual( 1, calc_number_paid_credit_parts( credit ) )
+        self.assertEqual( True, credit.last_payment_date > last_payment )
+
+        self.assertEqual( False, payment_part_credit( credit, calc_amount_required_to_pay_one_credit_part(credit) ) )
+
+        last_payment = credit.last_payment_date
+
+        self.assertEqual( user.cash_account.amount, 0 )
+        self.assertEqual( credit.amount_returned, 505 )
+        self.assertEqual( 1, calc_number_paid_credit_parts( credit ) )
+        self.assertEqual( True, credit.last_payment_date == last_payment )
+    
+    def test_checking_payment_part_credit( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        user.cash_account.amount = 505
+        user.cash_account.save()
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+
+        self.assertEqual( True, checking_payment_part_credit( credit ) )
+        self.assertEqual( 1, user.cash_account.messages.count() )
+        self.assertEqual( False, checking_payment_part_credit( credit ) )
+        self.assertEqual( 2, user.cash_account.messages.count() )
+    
+    def test_checking_credits_status( self ):
+        user = User.objects.create_user( email = 'mrloking11@gmail.com', first_name = 'Lo', last_name = 'ha', password = '123456' )
+        user.cash_account.amount = 505
+        user.cash_account.save()
+        credit = Credit.objects.create( amount = 1500, loan_duration = 3, cash_account = user.cash_account )
+
+        key = next( i for i in settings.UNIT_PAYMENT_CREDIT_TIME.keys() )
+        plus_to_credit_time = {
+            key : 1
+        }
+        credit.creation_date = credit.creation_date - datetime.timedelta( **plus_to_credit_time  )
+        credit.save()
+
+        checking_credits_status()
+
+        self.assertEqual( 1, CashAccount.objects.get( user = user ).messages.count() )
+        self.assertEqual( 0, CashAccount.objects.get( user = user ).amount )
+        self.assertEqual( 505, Credit.objects.get( cash_account = user.cash_account ).amount_returned )

@@ -2,7 +2,7 @@ from rest_framework.generics import RetrieveAPIView, CreateAPIView, UpdateAPIVie
 
 from .models import *
 from .serializers import *
-from .permissions import CustomBasePermission
+from .permissions import IsHasCashAccount, IsAuthenticated
 from .mixins.view_mixins import *
 
 
@@ -15,7 +15,7 @@ class RetrieveUserAPIView( RetrieveAPIView ):
     """
 
     serializer_class = RetrieveUserSerializer
-    permission_classes = ( CustomBasePermission, )
+    permission_classes = ( IsAuthenticated, )
 
     def get_object(self):
         return self.request.user
@@ -28,6 +28,7 @@ class RetrieveCashAccountAPIView( RetrieveAPIView ):
     """
 
     serializer_class = RetrieveCashAccountSerializer
+    permission_classes = ( IsHasCashAccount, )
 
     def get_object(self):
         return self.request.user.cash_account
@@ -76,3 +77,13 @@ class UpdateTransferIsIgnoreAPIView( ClearHistoryMixinAPIView ):
     """
 
     model = Transfer
+
+
+# Credit views
+
+class CreateCreditAPIView( CreateAPIView ):
+    """
+        APIView for create credit
+    """
+
+    serializer_class = CreateCreditSerializer

@@ -17,4 +17,7 @@ urlpatterns = [
     # Transfer urls
     path( 'user/cash-account/transfers/create/', CreateTransferAPIView.as_view(), name = 'create-transfer' ),
     path( 'user/cash-account/transfers/clear/', UpdateTransferIsIgnoreAPIView.as_view(), name = 'update-transfer-is_ignore' ),
+
+    # Credit urls
+    path( 'user/cash-account/credits/create/', CreateCreditAPIView.as_view(), name = 'create-credit' )
 ]

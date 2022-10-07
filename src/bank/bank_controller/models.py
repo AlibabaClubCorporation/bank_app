@@ -1,4 +1,3 @@
-from tkinter import N
 from django.db import models
 from django.contrib.auth.models import UserManager, AbstractUser
 from django.contrib.auth.hashers import make_password
@@ -22,6 +21,7 @@ class CustomUserManager(UserManager):
         email = self.normalize_email(email)
         user = User(email=email, **extra_fields)
         user.password = make_password(password)
+        user.full_name = f'{user.first_name} {user.last_name}'
         user.save(using=self._db)
 
         CashAccount.objects.create( user = user )
@@ -53,12 +53,12 @@ class User( AbstractUser ):
     )
 
     READING_FIELDS = (
-            'id',
-            'full_name',
-            'email',
-            'birth_date',
-            'is_active',
-            'cash_account',
+        'id',
+        'full_name',
+        'email',
+        'birth_date',
+        'is_active',
+        'cash_account',
     )
 
     EXCLUDE_READING_FIELDS = tuple()
@@ -252,6 +252,18 @@ class Credit( models.Model ):
         * The account is blocked until the money account has the necessary amount to pay the loan in full
     """
 
+    READING_FIELDS = (
+        'amount',
+        'loan_duration',
+        'is_increased_percentage',
+        'creation_date',
+        'last_payment_date',
+        'next_payment_date',
+        'amount_to_pay_the_next_installment_of_the_loan',
+        'remaining_amount_for_the_full_payment_of_the_loan',
+        "number_of_parts_until_the_full_payment_of_the_loan",
+    )
+
     loan_duration_choice = (
         ( 3, 3 ),
         ( 6, 6 ),
@@ -273,6 +285,8 @@ class Credit( models.Model ):
             ),
         ],
     )
+    amount_returned = models.PositiveIntegerField( default = 0 )
+
     loan_duration = models.PositiveSmallIntegerField(
         choices = loan_duration_choice,
     )
@@ -293,6 +307,11 @@ class Message( models.Model ):
     """
         Message model class
     """
+
+    READING_FIELDS = (
+        'content',
+        'creation_date'
+    )
 
     content = models.TextField()
 

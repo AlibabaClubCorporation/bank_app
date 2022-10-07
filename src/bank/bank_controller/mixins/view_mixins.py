@@ -12,7 +12,7 @@ class ClearHistoryMixinAPIView( APIView ):
     """
 
     # Required to specify. Required to define a model with the "is_ignore" field for the PUT method to work
-    model = None
+    model : Model = None
 
     # The "PUT" method of this mixin class requires the "model" class attribute to be specified.
     # Redefining the "as_view" class method allows you to check for the presence of this "model" attribute,
@@ -58,14 +58,14 @@ class ClearHistoryMixinAPIView( APIView ):
         id_list = request.data.get( 'id_list' )
 
         if not id_list:
-            set_ignore_status_for_queryset( True, cls.model.objects.all() )
+            set_ignore_status_for_queryset( True, cls.model.objects.filter( cash_account = request.user.cash_account ) )
         else:
             validation_result = id_list_validate( id_list )
             
             if not validation_result[0]:
                 return Response( data = validation_result[1], status = 400 )
                 
-            queryset = cls.model.objects.filter( pk__in = id_list )
+            queryset = cls.model.objects.filter( pk__in = id_list, cash_account = request.user.cash_account )
             set_ignore_status_for_queryset( True, queryset = queryset )
         
         return Response( status = 200 )

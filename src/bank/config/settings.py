@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timezone
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'djoser',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -84,7 +86,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'test_db' / 'db.sqlite3',
     }
 }
 
@@ -115,6 +117,8 @@ LANGUAGE_CODE = 'ru'
 
 TIME_ZONE = 'UTC'
 
+TIME_ZONE_DATETIME_MODULE_FORMAT = timezone.utc
+
 USE_I18N = True
 
 USE_TZ = True
@@ -141,7 +145,7 @@ REST_FRAMEWORK = {
     ],
 
     'DEFAULT_PERMISSION_CLASSES': [
-        'bank_controller.permissions.IsHasCashAccount',
+        'bank_controller.permissions.CustomBasePermission',
     ],
 
     'DEFAULT_AUTHENTICATION_CLASSES' : [
@@ -177,3 +181,34 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_HOST_USER = 'mrloking11@gmail.com'
 EMAIL_HOST_PASSWORD = 'nexwdewfqqzqarjh'
 EMAIL_PORT = 587
+
+
+# UNIT_PAYMENT_CREDIT_TIME
+# Dictionary rules:
+# - Must contain only 1 key/value pair (may have more, but the first specified pair will be used)
+# - The name of the key to use, must be equal to one of the arguments to datetime.datetime.timedelta
+# For example:
+# * minutes
+# * seconds
+# * days
+# * months
+# And so on.
+#
+# Used to specify the unit of time, once in which the payment will be due.
+UNIT_PAYMENT_CREDIT_TIME = {
+    'minutes' : None,
+    # 'days' : None,
+    # 'months' : None,
+}
+
+
+
+# REDIS RELATED SETTINGS
+
+REDIS_SERVICE_NAME = 'redis'
+REDIS_PORT = '6379'
+
+# # CELERY SETTINGS
+
+CELERY_BROKER_URL = f'redis://{REDIS_SERVICE_NAME}:{REDIS_PORT}'
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL

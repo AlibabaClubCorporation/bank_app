@@ -1,10 +1,17 @@
 from rest_framework import serializers
 from django.urls import reverse
 from rest_framework.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist
 
 from bank_controller.mixins.serializer_mixins import *
 from bank_controller.services.general_service import CurrentCashAccount
 from bank_controller.services.cash_management_service import *
+from bank_controller.services.credit_service import (
+    calc_amount_required_to_pay_one_credit_part,
+    calc_parts_remaining_to_pay_credit,
+    calc_remaining_amount_to_repay_credit,
+    calc_payment_time_limit
+)
 from bank_controller.models import *
 
 
@@ -94,6 +101,70 @@ class CreateTransferSerializer( SerializerWithPinCodeValidation, SerializerWithA
 
         return instance
 
+# Message serializers
+
+class MessageSerializer( serializers.ModelSerializer ):
+    """
+        Serializer for showing messages data
+    """
+
+    class Meta:
+        model = Message
+        fields = model.READING_FIELDS
+
+# Credit serializers
+
+class CreditSerializer( serializers.ModelSerializer ):
+    """
+        Serializer for showing credir data
+    """
+
+    next_payment_date = serializers.SerializerMethodField()
+    amount_to_pay_the_next_installment_of_the_loan = serializers.SerializerMethodField()
+    remaining_amount_for_the_full_payment_of_the_loan = serializers.SerializerMethodField()
+    number_of_parts_until_the_full_payment_of_the_loan = serializers.SerializerMethodField()
+
+
+    class Meta:
+        model = Credit
+        fields = model.READING_FIELDS
+
+    def get_next_payment_date( self, instance ):
+        return calc_payment_time_limit( instance )
+
+    def get_amount_to_pay_the_next_installment_of_the_loan( self, instance ):
+        return calc_amount_required_to_pay_one_credit_part( instance )
+    
+    def get_remaining_amount_for_the_full_payment_of_the_loan( self, instance ):
+        return calc_remaining_amount_to_repay_credit( instance )
+    
+    def get_number_of_parts_until_the_full_payment_of_the_loan( self, instance ):
+        return calc_parts_remaining_to_pay_credit( instance )
+
+
+class CreateCreditSerializer( SerializerWithPinCodeValidation ):
+
+    cash_account = serializers.HiddenField( default = CurrentCashAccount() )
+    amount = serializers.IntegerField(
+        min_value = 1000,
+    )
+    loan_duration = serializers.ChoiceField(
+        choices = ( 3, 6, 12 )
+    )
+
+    def validate_cash_account( self, value ):
+        try:
+            value.credit
+            raise ValidationError( 'You cannot have 2 loans at the same time' )
+        except ObjectDoesNotExist:
+            return value
+
+    def create(self, validated_data):
+        validated_data.pop('pin')
+        cash_replenishment( validated_data['amount'], validated_data['cash_account'] )
+
+        return Credit.objects.create( **validated_data )
+
 
 # Cash Account Serializers
 
@@ -103,6 +174,8 @@ class RetrieveCashAccountSerializer( serializers.ModelSerializer ):
     """
 
     history = serializers.SerializerMethodField()
+    credit = CreditSerializer()
+    messages = MessageSerializer( many = True )
 
     class Meta:
         model = CashAccount

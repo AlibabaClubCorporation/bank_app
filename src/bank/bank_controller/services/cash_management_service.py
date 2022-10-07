@@ -15,7 +15,7 @@ def cash_withdrawal( amount : int, account : CashAccount ) -> bool:
     """
         Tries to withdraw money from cash_account, if the operation is successful returns True, otherwise False
     """
-
+    
     if not checking_availability_money( amount, account ):
         return False
 
